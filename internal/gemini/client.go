@@ -8,7 +8,6 @@ import (
 	"fmt"
 	"io"
 	"net/http"
-	"sort"
 	"strings"
 	"sync"
 	"time"
@@ -20,6 +19,7 @@ type Client struct {
 	apiKey string
 	keyErr error
 	model  string
+	auto   string
 	http   http.Client
 	mu     sync.RWMutex
 }
@@ -29,10 +29,18 @@ func NewClient(model string) *Client {
 		model = config.DefaultModel
 	}
 	apiKey, keyErr := config.ResolveGoogleAPIKey()
+	auto := normalizeAutoMode(model)
+	resolved := model
+	if keyErr == nil && auto != "" {
+		if m, err := discoverModelByAutoMode(context.Background(), apiKey, auto); err == nil && m != "" {
+			resolved = m
+		}
+	}
 	return &Client{
 		apiKey: apiKey,
 		keyErr: keyErr,
-		model:  model,
+		model:  resolved,
+		auto:   auto,
 		http:   http.Client{Timeout: 25 * time.Second},
 	}
 }
@@ -57,11 +65,6 @@ func (c *Client) Generate(ctx context.Context, systemPrompt, userPrompt string) 
 		},
 	}
 
-	buf, err := json.Marshal(payload)
-	if err != nil {
-		return "", err
-	}
-
 	model := c.currentModel()
 	text, statusCode, body, err := c.generateWithModel(ctx, model, payload)
 	if err == nil {
@@ -72,7 +75,11 @@ func (c *Client) Generate(ctx context.Context, systemPrompt, userPrompt string) 
 		return "", err
 	}
 
-	fallback, derr := c.discoverActiveGenerateContentModel(ctx)
+	autoMode := c.autoMode()
+	if autoMode == "" {
+		autoMode = "auto-flash"
+	}
+	fallback, derr := discoverModelByAutoMode(ctx, c.apiKey, autoMode)
 	if derr != nil {
 		return "", fmt.Errorf("configured model %q is unavailable and model discovery failed: %w", model, derr)
 	}
@@ -98,6 +105,12 @@ func (c *Client) setCurrentModel(m string) {
 	c.mu.Lock()
 	defer c.mu.Unlock()
 	c.model = m
+}
+
+func (c *Client) autoMode() string {
+	c.mu.RLock()
+	defer c.mu.RUnlock()
+	return c.auto
 }
 
 func (c *Client) generateWithModel(ctx context.Context, model string, payload map[string]any) (string, int, string, error) {
@@ -145,67 +158,6 @@ func (c *Client) generateWithModel(ctx context.Context, model string, payload ma
 	return out.Candidates[0].Content.Parts[0].Text, resp.StatusCode, string(body), nil
 }
 
-func (c *Client) discoverActiveGenerateContentModel(ctx context.Context) (string, error) {
-	url := fmt.Sprintf("https://generativelanguage.googleapis.com/v1beta/models?key=%s", c.apiKey)
-	req, err := http.NewRequestWithContext(ctx, http.MethodGet, url, nil)
-	if err != nil {
-		return "", err
-	}
-	resp, err := c.http.Do(req)
-	if err != nil {
-		return "", err
-	}
-	defer resp.Body.Close()
-	body, err := io.ReadAll(resp.Body)
-	if err != nil {
-		return "", err
-	}
-	if resp.StatusCode >= 300 {
-		return "", fmt.Errorf("model list error (%d): %s", resp.StatusCode, string(body))
-	}
-
-	var out struct {
-		Models []struct {
-			Name                       string   `json:"name"`
-			SupportedGenerationMethods []string `json:"supportedGenerationMethods"`
-		} `json:"models"`
-	}
-	if err := json.Unmarshal(body, &out); err != nil {
-		return "", err
-	}
-
-	candidates := make([]string, 0)
-	for _, m := range out.Models {
-		if !supportsMethod(m.SupportedGenerationMethods, "generateContent") {
-			continue
-		}
-		name := strings.TrimPrefix(m.Name, "models/")
-		if strings.HasPrefix(name, "gemini") {
-			candidates = append(candidates, name)
-		}
-	}
-	if len(candidates) == 0 {
-		return "", errors.New("no active gemini model supports generateContent")
-	}
-
-	preferred := []string{
-		"gemini-2.5-flash",
-		"gemini-2.0-flash",
-		"gemini-1.5-flash",
-		"gemini-pro",
-	}
-	for _, p := range preferred {
-		for _, c := range candidates {
-			if strings.HasPrefix(c, p) {
-				return c, nil
-			}
-		}
-	}
-
-	sort.Strings(candidates)
-	return candidates[0], nil
-}
-
 func supportsMethod(methods []string, method string) bool {
 	for _, m := range methods {
 		if m == method {
@@ -228,4 +180,27 @@ func isModelUnavailable(statusCode int, body string, err error) bool {
 		return true
 	}
 	return false
+}
+
+func normalizeAutoMode(v string) string {
+	v = strings.ToLower(strings.TrimSpace(v))
+	switch v {
+	case "auto", "auto-flash", "auto_flash", "auto flash":
+		return "auto-flash"
+	case "auto-pro", "auto_pro", "auto pro":
+		return "auto-pro"
+	default:
+		return ""
+	}
+}
+
+func discoverModelByAutoMode(ctx context.Context, apiKey, mode string) (string, error) {
+	switch normalizeAutoMode(mode) {
+	case "auto-pro":
+		return DiscoverNewestProModel(ctx, apiKey)
+	case "auto-flash":
+		fallthrough
+	default:
+		return DiscoverNewestFlashModel(ctx, apiKey)
+	}
 }

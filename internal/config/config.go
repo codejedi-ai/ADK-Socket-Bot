@@ -11,7 +11,7 @@ import (
 const (
 	DefaultHost      = "127.0.0.1"
 	DefaultPort      = 8080
-	DefaultModel     = "gemini-1.5-flash"
+	DefaultModel     = "auto-flash"
 	DefaultGatewayWS = "ws://127.0.0.1:8080/ws"
 )
 
