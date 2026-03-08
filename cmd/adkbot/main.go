@@ -38,6 +38,7 @@ func main() {
 	root.AddCommand(newManualCmd())
 	root.AddCommand(newImageCmd())
 	root.AddCommand(newVideoCmd())
+	root.AddCommand(newTestCmd())
 
 	if err := root.Execute(); err != nil {
 		fmt.Fprintln(os.Stderr, err)
@@ -743,6 +744,45 @@ func newVideoCmd() *cobra.Command {
 	cmd.Flags().StringVar(&publicID, "public-id", "", "Cloudinary public ID (optional)")
 	cmd.Flags().BoolVarP(&wait, "wait", "w", true, "Wait for video generation to complete")
 
+	return cmd
+}
+
+func newTestCmd() *cobra.Command {
+	cmd := &cobra.Command{
+		Use:   "test",
+		Short: "Test Cloudinary upload and media functionality",
+		RunE: func(_ *cobra.Command, _ []string) error {
+			ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+			defer cancel()
+
+			fmt.Println("=== Test 1: Upload from remote URL ===")
+			result, err := media.UploadRemote(ctx, "https://picsum.photos/800/600", "test_remote_image", "image")
+			if err != nil {
+				return fmt.Errorf("upload failed: %w", err)
+			}
+			fmt.Printf("✓ Upload successful!\n")
+			fmt.Printf("  Public ID: %v\n", result["public_id"])
+			fmt.Printf("  URL: %v\n", result["secure_url"])
+			fmt.Printf("  Resource Type: %v\n", result["resource_type"])
+
+			fmt.Println("\n=== Test 2: Upload from bytes ===")
+			ctx2, cancel2 := context.WithTimeout(context.Background(), 30*time.Second)
+			defer cancel2()
+
+			pngData := []byte{0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a, 0x00, 0x00, 0x00, 0x0d, 0x49, 0x48, 0x44, 0x52, 0x00, 0x00, 0x00, 0x01, 0x00, 0x00, 0x00, 0x01, 0x08, 0x02, 0x00, 0x00, 0x00, 0x90, 0x77, 0x53, 0xde, 0x00, 0x00, 0x00, 0x0c, 0x49, 0x44, 0x41, 0x54, 0x08, 0xd7, 0x63, 0xf8, 0xcf, 0xc0, 0xf0, 0x00, 0x00, 0x00, 0x03, 0x00, 0x01, 0x00, 0x05, 0xfe, 0xd4, 0xef, 0x00, 0x00, 0x00, 0x00, 0x49, 0x45, 0x4e, 0x44, 0xae, 0x42, 0x60, 0x82}
+
+			result2, err := media.UploadBytes(ctx2, pngData, "image/png", "test_pixel_image", "image")
+			if err != nil {
+				return fmt.Errorf("upload failed: %w", err)
+			}
+			fmt.Printf("✓ Upload successful!\n")
+			fmt.Printf("  Public ID: %v\n", result2["public_id"])
+			fmt.Printf("  URL: %v\n", result2["secure_url"])
+
+			fmt.Println("\n=== All tests passed! ===")
+			return nil
+		},
+	}
 	return cmd
 }
 
