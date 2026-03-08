@@ -15,7 +15,7 @@ import (
 )
 
 const (
-	DefaultImageModel = "imagen-3.0-generate-002"
+	DefaultImageModel = "gemini-3.1-flash-image-preview"
 	DefaultVideoModel = "veo-3.1-generate-preview"
 )
 
@@ -81,37 +81,45 @@ func GenerateImages(ctx context.Context, prompt string, opt ImageOptions) (map[s
 		return nil, err
 	}
 
-	cfg := &genai.GenerateImagesConfig{}
+	cfg := &genai.GenerateContentConfig{}
 	if strings.TrimSpace(opt.AspectRatio) != "" {
-		cfg.AspectRatio = opt.AspectRatio
-	}
-	if strings.TrimSpace(opt.NegativePrompt) != "" {
-		cfg.NegativePrompt = opt.NegativePrompt
+		cfg.ResponseModalities = []string{"TEXT", "IMAGE"}
 	}
 	if opt.NumberOfImages > 0 {
-		cfg.NumberOfImages = opt.NumberOfImages
+		cfg.CandidateCount = int32(opt.NumberOfImages)
 	}
 
-	resp, err := client.Models.GenerateImages(ctx, opt.Model, prompt, cfg)
+	// Use the model name directly - the SDK handles the endpoint
+	resp, err := client.Models.GenerateContent(ctx, opt.Model, []*genai.Content{
+		{Role: "user", Parts: []*genai.Part{{Text: prompt}}},
+	}, cfg)
 	if err != nil {
 		return nil, err
 	}
-	items := make([]map[string]any, 0, len(resp.GeneratedImages))
-	for _, gi := range resp.GeneratedImages {
-		if gi == nil || gi.Image == nil || len(gi.Image.ImageBytes) == 0 {
+
+	items := []map[string]any{}
+	for _, candidate := range resp.Candidates {
+		if candidate.Content == nil || candidate.Content.Parts == nil {
 			continue
 		}
-		mime := gi.Image.MIMEType
-		if mime == "" {
-			mime = "image/png"
+		for _, part := range candidate.Content.Parts {
+			if part.InlineData != nil && len(part.InlineData.Data) > 0 {
+				mime := part.InlineData.MIMEType
+				if mime == "" {
+					mime = "image/png"
+				}
+				b64 := base64.StdEncoding.EncodeToString(part.InlineData.Data)
+				items = append(items, map[string]any{
+					"mime_type":    mime,
+					"image_base64": b64,
+					"data_url":     "data:"+mime+";base64,"+b64,
+				})
+			} else if part.Text != "" {
+				fmt.Printf("Text response: %s\n", part.Text)
+			}
 		}
-		b64 := base64.StdEncoding.EncodeToString(gi.Image.ImageBytes)
-		items = append(items, map[string]any{
-			"mime_type":    mime,
-			"image_base64": b64,
-			"data_url":     "data:" + mime + ";base64," + b64,
-		})
 	}
+
 	if len(items) == 0 {
 		return nil, errors.New("no images returned by model")
 	}

@@ -48,6 +48,13 @@ Available tool names:
 - `gemini_generate_image`: generate image data from prompt (returns base64 + data URL).
 - `gemini_generate_video_job`: starts a Google video generation job using your configured endpoint/token.
 
+Direct CLI usage is also Go-native:
+
+```bash
+adkbot image --prompt "cinematic neon city" --output city.png
+adkbot image --prompt "studio portrait" --upload --public-id portrait_demo
+```
+
 Onboarding now supports storing `CLOUDINARY_URL` in `~/.adkbot/config.json`.
 
 For video job start (Google), set:

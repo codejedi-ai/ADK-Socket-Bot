@@ -11,6 +11,7 @@ import (
 	"os"
 	"os/exec"
 	"os/signal"
+	"path/filepath"
 	"strconv"
 	"strings"
 	"syscall"
@@ -534,6 +535,7 @@ func newImageCmd() *cobra.Command {
 	var aspectRatio string
 	var negativePrompt string
 	var numImages int32
+	var output string
 	var upload bool
 	var publicID string
 
@@ -545,7 +547,7 @@ func newImageCmd() *cobra.Command {
 				return errors.New("--prompt is required")
 			}
 
-			ctx, cancel := context.WithTimeout(context.Background(), 60*time.Second)
+			ctx, cancel := context.WithTimeout(context.Background(), 180*time.Second)
 			defer cancel()
 
 			opt := media.ImageOptions{
@@ -571,41 +573,39 @@ func newImageCmd() *cobra.Command {
 			}
 
 			for i, img := range images {
-				dataURL, _ := img["data_url"].(string)
 				mimeType, _ := img["mime_type"].(string)
+				imageBase64, _ := img["image_base64"].(string)
+				if strings.TrimSpace(imageBase64) == "" {
+					return fmt.Errorf("generated image %d did not include image_base64", i+1)
+				}
+				data, err := base64.StdEncoding.DecodeString(imageBase64)
+				if err != nil {
+					return fmt.Errorf("failed to decode image %d: %w", i+1, err)
+				}
 
 				fmt.Printf("\n--- Image %d ---\n", i+1)
 				fmt.Printf("MIME Type: %s\n", mimeType)
 
-				if upload && strings.TrimSpace(publicID) != "" {
-					b64 := strings.TrimPrefix(dataURL, "data:"+mimeType+";base64,")
-					data, err := base64.StdEncoding.DecodeString(b64)
-					if err != nil {
-						return fmt.Errorf("failed to decode image: %w", err)
+				if strings.TrimSpace(output) != "" {
+					path := output
+					if len(images) > 1 {
+						path = indexedOutputPath(output, i+1)
 					}
+					if err := os.WriteFile(path, data, 0o644); err != nil {
+						return fmt.Errorf("failed writing image to %s: %w", path, err)
+					}
+					fmt.Printf("Saved image: %s\n", path)
+				}
 
+				if upload {
 					uploadCtx, uploadCancel := context.WithTimeout(context.Background(), 30*time.Second)
-					defer uploadCancel()
-
-					uploadResult, err := media.UploadBytes(uploadCtx, data, mimeType, publicID, "image")
-					if err != nil {
-						return fmt.Errorf("upload failed: %w", err)
+					uploadPID := strings.TrimSpace(publicID)
+					if uploadPID != "" && len(images) > 1 {
+						uploadPID = fmt.Sprintf("%s_%d", uploadPID, i+1)
 					}
 
-					fmt.Printf("Uploaded to Cloudinary:\n")
-					fmt.Printf("  Public ID: %s\n", uploadResult["public_id"])
-					fmt.Printf("  URL: %s\n", uploadResult["secure_url"])
-				} else if upload {
-					b64 := strings.TrimPrefix(dataURL, "data:"+mimeType+";base64,")
-					data, err := base64.StdEncoding.DecodeString(b64)
-					if err != nil {
-						return fmt.Errorf("failed to decode image: %w", err)
-					}
-
-					uploadCtx, uploadCancel := context.WithTimeout(context.Background(), 30*time.Second)
-					defer uploadCancel()
-
-					uploadResult, err := media.UploadBytes(uploadCtx, data, mimeType, "", "image")
+					uploadResult, err := media.UploadBytes(uploadCtx, data, mimeType, uploadPID, "image")
+					uploadCancel()
 					if err != nil {
 						return fmt.Errorf("upload failed: %w", err)
 					}
@@ -614,6 +614,7 @@ func newImageCmd() *cobra.Command {
 					fmt.Printf("  Public ID: %s\n", uploadResult["public_id"])
 					fmt.Printf("  URL: %s\n", uploadResult["secure_url"])
 				} else {
+					dataURL, _ := img["data_url"].(string)
 					fmt.Printf("Data URL (first 100 chars): %s...\n", truncate(dataURL, 100))
 				}
 			}
@@ -623,10 +624,11 @@ func newImageCmd() *cobra.Command {
 	}
 
 	cmd.Flags().StringVarP(&prompt, "prompt", "p", "", "Image generation prompt (required)")
-	cmd.Flags().StringVarP(&model, "model", "m", "", "Image model (default: imagen-3.0-generate-002)")
+	cmd.Flags().StringVarP(&model, "model", "m", "", "Image model (default: gemini-3.1-flash-image-preview)")
 	cmd.Flags().StringVarP(&aspectRatio, "aspect", "a", "", "Aspect ratio (e.g., 16:9, 1:1, 9:16)")
 	cmd.Flags().StringVarP(&negativePrompt, "negative", "n", "", "Negative prompt")
 	cmd.Flags().Int32VarP(&numImages, "count", "c", 1, "Number of images to generate")
+	cmd.Flags().StringVarP(&output, "output", "o", "", "Output file path (when --count > 1, suffixes like _1 are added)")
 	cmd.Flags().BoolVarP(&upload, "upload", "u", false, "Upload generated images to Cloudinary")
 	cmd.Flags().StringVar(&publicID, "public-id", "", "Cloudinary public ID (optional)")
 
@@ -791,4 +793,13 @@ func truncate(s string, max int) string {
 		return s
 	}
 	return s[:max]
+}
+
+func indexedOutputPath(path string, index int) string {
+	ext := filepath.Ext(path)
+	base := strings.TrimSuffix(path, ext)
+	if ext == "" {
+		return fmt.Sprintf("%s_%d", base, index)
+	}
+	return fmt.Sprintf("%s_%d%s", base, index, ext)
 }
