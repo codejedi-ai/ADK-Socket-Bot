@@ -7,7 +7,7 @@ import (
 	"strconv"
 	"strings"
 
-	"adkbot/internal/media"
+	"github.com/codejedi-ai/adkgobot/internal/media"
 )
 
 func mediaImageTool(ctx context.Context, args map[string]any) (interface{}, error) {
@@ -45,7 +45,7 @@ func mediaImageTool(ctx context.Context, args map[string]any) (interface{}, erro
 	case "transform_url":
 		return media.TransformURL(strArg(args, "public_id"), strArg(args, "transformation"), "image")
 	case "generate":
-		return generateImageAndMaybePost(ctx, args)
+		return imageGenerateTool(ctx, args)
 	default:
 		return nil, errors.New("unsupported media_image operation")
 	}
@@ -97,13 +97,13 @@ func mediaVideoTool(ctx context.Context, args map[string]any) (interface{}, erro
 		}
 		return uploadVideoResults(ctx, poll, strArg(args, "cloudinary_public_id"))
 	case "generate":
-		return generateVideoAndMaybePost(ctx, args)
+		return videoGenerateTool(ctx, args)
 	default:
 		return nil, errors.New("unsupported media_video operation")
 	}
 }
 
-func generateImageAndMaybePost(ctx context.Context, args map[string]any) (interface{}, error) {
+func imageGenerateTool(ctx context.Context, args map[string]any) (interface{}, error) {
 	prompt, _ := args["prompt"].(string)
 	model, _ := args["model"].(string)
 	channel := channelArg(args)
@@ -148,6 +148,10 @@ func generateImageAndMaybePost(ctx context.Context, args map[string]any) (interf
 		if err != nil {
 			return nil, err
 		}
+		// Log the Cloudinary URL to the CSV
+		secureURL, _ := up["secure_url"].(string)
+		localPath, _ := img["local_path"].(string)
+		media.LogMediaMetadata(prompt, localPath, secureURL, "image")
 		uploaded = append(uploaded, up)
 	}
 	return map[string]any{
@@ -158,7 +162,7 @@ func generateImageAndMaybePost(ctx context.Context, args map[string]any) (interf
 	}, nil
 }
 
-func generateVideoAndMaybePost(ctx context.Context, args map[string]any) (interface{}, error) {
+func videoGenerateTool(ctx context.Context, args map[string]any) (interface{}, error) {
 	prompt := strArg(args, "prompt")
 	if prompt == "" {
 		return nil, errors.New("prompt is required")

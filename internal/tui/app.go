@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"strings"
 
-	"adkbot/internal/config"
+	"github.com/codejedi-ai/adkgobot/internal/config"
 
 	"github.com/charmbracelet/bubbles/textinput"
 	tea "github.com/charmbracelet/bubbletea"

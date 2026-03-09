@@ -8,7 +8,7 @@ import (
 	"net/http"
 	"time"
 
-	"adkbot/internal/agent"
+	"github.com/codejedi-ai/adkgobot/internal/agent"
 
 	"github.com/gorilla/websocket"
 )

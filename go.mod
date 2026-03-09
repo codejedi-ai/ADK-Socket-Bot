@@ -1,4 +1,4 @@
-module adkbot
+module github.com/codejedi-ai/adkgobot
 
 go 1.25
 

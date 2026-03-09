@@ -24,6 +24,8 @@ func NewRegistry() *Registry {
 	r.handlers["echo"] = echo
 	r.handlers["media_image"] = mediaImageTool
 	r.handlers["media_video"] = mediaVideoTool
+	r.handlers["image_generate"] = imageGenerateTool
+	r.handlers["video_generate"] = videoGenerateTool
 	r.handlers["cli"] = cliTool
 	r.handlers["filesystem"] = filesystemTool
 

@@ -1,25 +1,25 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-# Bootstrap installer for adkbot.
+# Bootstrap installer for adkgobot.
 # Intended usage:
 #   curl -fsSL https://<your-domain>/install.sh | bash
 #
-# It installs prerequisites first, then invokes the official adkbot installer.
+# It installs prerequisites first, then invokes the official adkgobot installer.
 
-OFFICIAL_URL_DEFAULT="https://raw.githubusercontent.com/codejedi-ai/ADK-Socket-Bot/main/scripts/install.sh"
-OFFICIAL_URL="${ADKBOT_OFFICIAL_INSTALL_URL:-$OFFICIAL_URL_DEFAULT}"
+OFFICIAL_URL_DEFAULT="https://raw.githubusercontent.com/codejedi-ai/adkgobot/main/scripts/install.sh"
+OFFICIAL_URL="${adkgobot_OFFICIAL_INSTALL_URL:-$OFFICIAL_URL_DEFAULT}"
 
 log() {
-	printf "[adkbot-bootstrap] %s\n" "$*"
+	printf "[adkgobot-bootstrap] %s\n" "$*"
 }
 
 warn() {
-	printf "[adkbot-bootstrap] WARNING: %s\n" "$*" >&2
+	printf "[adkgobot-bootstrap] WARNING: %s\n" "$*" >&2
 }
 
 die() {
-	printf "[adkbot-bootstrap] ERROR: %s\n" "$*" >&2
+	printf "[adkgobot-bootstrap] ERROR: %s\n" "$*" >&2
 	exit 1
 }
 
@@ -110,7 +110,7 @@ install_prereqs() {
 }
 
 run_official_install() {
-	log "Running official adkbot installer: $OFFICIAL_URL"
+	log "Running official adkgobot installer: $OFFICIAL_URL"
 	tmp_script="$(mktemp)"
 	trap 'rm -f "$tmp_script"' EXIT
 

@@ -1,18 +1,18 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-# adkbot uninstall script.
+# adkgobot uninstall script.
 
-INSTALL_DIR="${ADKBOT_INSTALL_DIR:-/usr/local/bin}"
-BIN_PATH="${INSTALL_DIR}/adkbot"
-RUNTIME_DIR="${HOME}/.adkbot"
+INSTALL_DIR="${adkgobot_INSTALL_DIR:-/usr/local/bin}"
+BIN_PATH="${INSTALL_DIR}/adkgobot"
+RUNTIME_DIR="${HOME}/.adkgobot"
 
 log() {
-  printf "[adkbot-uninstall] %s\n" "$*"
+  printf "[adkgobot-uninstall] %s\n" "$*"
 }
 
 die() {
-  printf "[adkbot-uninstall] ERROR: %s\n" "$*" >&2
+  printf "[adkgobot-uninstall] ERROR: %s\n" "$*" >&2
   exit 1
 }
 

@@ -7,7 +7,6 @@ import (
 	"path/filepath"
 	"strconv"
 	"strings"
-	"syscall"
 )
 
 func WritePID(pidFile string, pid int) error {
@@ -29,26 +28,6 @@ func ReadPID(pidFile string) (int, error) {
 	return pid, nil
 }
 
-func IsRunning(pid int) bool {
-	if pid <= 0 {
-		return false
-	}
-	err := syscall.Kill(pid, 0)
-	return err == nil
-}
-
-func StopByPIDFile(pidFile string) error {
-	pid, err := ReadPID(pidFile)
-	if err != nil {
-		return err
-	}
-	if err := syscall.Kill(pid, syscall.SIGTERM); err != nil {
-		return err
-	}
-	_ = os.Remove(pidFile)
-	return nil
-}
-
 func EnsureStopped(pidFile string) error {
 	pid, err := ReadPID(pidFile)
 	if err != nil {
@@ -58,7 +37,11 @@ func EnsureStopped(pidFile string) error {
 		return err
 	}
 	if !IsRunning(pid) {
-		_ = os.Remove(pidFile)
+		_ = removeFile(pidFile)
 	}
 	return nil
+}
+
+func removeFile(path string) error {
+	return os.Remove(path)
 }

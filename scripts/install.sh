@@ -1,20 +1,20 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-# Official adkbot installer.
-# Installs adkbot to /usr/local/bin by default.
+# Official adkgobot installer.
+# Installs adkgobot to /usr/local/bin by default.
 
-REPO_DEFAULT="https://github.com/codejedi-ai/ADK-Socket-Bot.git"
-REPO_URL="${ADKBOT_REPO_URL:-$REPO_DEFAULT}"
-INSTALL_DIR="${ADKBOT_INSTALL_DIR:-/usr/local/bin}"
-WORK_DIR="${ADKBOT_WORK_DIR:-$(mktemp -d)}"
+REPO_DEFAULT="https://github.com/codejedi-ai/adkgobot.git"
+REPO_URL="${adkgobot_REPO_URL:-$REPO_DEFAULT}"
+INSTALL_DIR="${adkgobot_INSTALL_DIR:-/usr/local/bin}"
+WORK_DIR="${adkgobot_WORK_DIR:-$(mktemp -d)}"
 
 log() {
-  printf "[adkbot-install] %s\n" "$*"
+  printf "[adkgobot-install] %s\n" "$*"
 }
 
 die() {
-  printf "[adkbot-install] ERROR: %s\n" "$*" >&2
+  printf "[adkgobot-install] ERROR: %s\n" "$*" >&2
   exit 1
 }
 
@@ -42,25 +42,25 @@ have go || die "go is required (Go 1.25+)"
 log "Cloning source from $REPO_URL"
 git clone --depth 1 "$REPO_URL" "$WORK_DIR/repo"
 
-log "Building adkbot"
+log "Building adkgobot"
 (
   cd "$WORK_DIR/repo"
   go mod tidy
-  go build -o adkbot ./cmd/adkbot
+  go build -o adkgobot ./cmd/adkgobot
 )
 
-log "Installing adkbot to $INSTALL_DIR"
+log "Installing adkgobot to $INSTALL_DIR"
 $SUDO mkdir -p "$INSTALL_DIR"
-$SUDO install -m 0755 "$WORK_DIR/repo/adkbot" "$INSTALL_DIR/adkbot"
+$SUDO install -m 0755 "$WORK_DIR/repo/adkgobot" "$INSTALL_DIR/adkgobot"
 
-if have adkbot; then
-  log "adkbot installed: $(command -v adkbot)"
+if have adkgobot; then
+  log "adkgobot installed: $(command -v adkgobot)"
 else
-  log "adkbot installed to $INSTALL_DIR/adkbot"
+  log "adkgobot installed to $INSTALL_DIR/adkgobot"
   log "If your PATH does not include $INSTALL_DIR, add it and reopen your shell."
 fi
 
 log "Next steps:"
-log "1) adkbot onboard"
-log "2) adkbot gateway start"
-log "3) adkbot tui"
+log "1) adkgobot onboard"
+log "2) adkgobot gateway start"
+log "3) adkgobot tui"

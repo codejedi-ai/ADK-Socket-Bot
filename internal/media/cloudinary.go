@@ -9,7 +9,7 @@ import (
 	"strings"
 	"time"
 
-	"adkbot/internal/config"
+	"github.com/codejedi-ai/adkgobot/internal/config"
 
 	"github.com/cloudinary/cloudinary-go/v2"
 	"github.com/cloudinary/cloudinary-go/v2/api"
@@ -48,6 +48,7 @@ func UploadRemote(ctx context.Context, sourceURL, publicID, resourceType string)
 	resp, err := cld.Upload.Upload(ctx, sourceURL, uploader.UploadParams{
 		PublicID:       publicID,
 		ResourceType:   resourceType,
+		Folder:         "adkbot",
 		UniqueFilename: api.Bool(false),
 		Overwrite:      api.Bool(true),
 	})
@@ -80,6 +81,7 @@ func UploadBytes(ctx context.Context, data []byte, mimeType, publicID, resourceT
 	resp, err := cld.Upload.Upload(ctx, bytes.NewReader(data), uploader.UploadParams{
 		PublicID:       publicID,
 		ResourceType:   resourceType,
+		Folder:         "adkbot",
 		UniqueFilename: api.Bool(false),
 		Overwrite:      api.Bool(true),
 		Format:         strings.TrimPrefix(strings.ToLower(strings.TrimSpace(mimeType)), "image/"),
